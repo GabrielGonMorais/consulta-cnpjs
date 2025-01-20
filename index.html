@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consulta de CNPJs</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      text-align: center;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      font-size: 16px;
+    }
+    button {
+      margin-top: 20px;
+      padding: 15px;
+      font-size: 18px;
+      cursor: pointer;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Consulta de CNPJs</h1>
+  <p>Insira os CNPJs separados por vírgula:</p>
+  <textarea id="cnpjInput" placeholder="Ex: 00000000000191,11444777000161"></textarea>
+  <br>
+  <button onclick="consultarCNPJs()">Confirmar</button>
+  <p id="status"></p>
+
+  <script>
+    async function consultarCNPJs() {
+      const input = document.getElementById('cnpjInput').value.trim();
+      const status = document.getElementById('status');
+
+      if (!input) {
+        alert('Por favor, insira pelo menos um CNPJ.');
+        return;
+      }
+
+      const cnpjList = input.split(',').map(cnpj => cnpj.trim().replace(/\D/g, '')); // Remove espaços e caracteres não numéricos
+
+      status.textContent = 'Consultando, aguarde...';
+
+      const resultados = await Promise.all(cnpjList.map(async (cnpj) => {
+        try {
+          const response = await axios.get(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+          return {
+            CNPJ: response.data.cnpj || cnpj,
+            Nome: response.data.razao_social || 'N/A',
+            Simples: response.data.opcao_pelo_simples ? 'Sim' : 'Não'
+          };
+        } catch (error) {
+          console.error(`Erro ao consultar ${cnpj}:`, error);
+          return { CNPJ: cnpj, Nome: 'Erro ao consultar', Simples: 'Erro' };
+        }
+      }));
+
+      gerarExcel(resultados);
+      status.textContent = 'Consulta concluída! O arquivo Excel foi gerado.';
+    }
+
+    function gerarExcel(data) {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Empresas');
+
+      XLSX.writeFile(wb, 'Consulta_CNPJs.xlsx');
+    }
+  </script>
+
+</body>
+</html>
